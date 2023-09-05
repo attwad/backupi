@@ -1,0 +1,4 @@
+*.json
+testdata*
+backupi
+config.yaml
