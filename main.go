@@ -83,16 +83,24 @@ func main() {
 		}
 		fmt.Println("Done adding", path, "to the archive")
 	}
+	// Now gzip the tar file.
+	cmd := exec.Command("gzip", tempOutputFile)
+	fmt.Println("Executing", cmd.String())
+	b, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Fatalf("executing %s: %v, output: %s", cmd.String(), err, string(b))
+	}
+	fmt.Println("Done gzipping", tempOutputFile)
+	tempOutputFile = tempOutputFile + ".gz"
 
 	if c.Dest.LocalDir != nil && c.Dest.LocalDir.Path != "" {
-		finalFile := filepath.Join(c.Dest.LocalDir.Path, "backup.tar")
+		finalFile := filepath.Join(c.Dest.LocalDir.Path, tempOutputFile)
 		fmt.Println("Writing to", finalFile)
 		if err := os.Rename(tempOutputFile, finalFile); err != nil {
 			log.Fatalf("Moving %s to %s: %v", tempOutputFile, finalFile, err)
 		}
 		fmt.Println("Done")
-	}
-	if c.Dest.GCS != nil && c.Dest.GCS.Bucket != "" {
+	} else if c.Dest.GCS != nil && c.Dest.GCS.Bucket != "" {
 		fmt.Println("Uploading to GCS at", c.Dest.GCS.Bucket)
 		ctx := context.Background()
 
@@ -106,7 +114,7 @@ func main() {
 			log.Fatalf("creating GCS client: %v", err)
 		}
 
-		wc := srv.Bucket(c.Dest.GCS.Bucket).Object("backup.tar").NewWriter(ctx)
+		wc := srv.Bucket(c.Dest.GCS.Bucket).Object("backup.tar.gz").NewWriter(ctx)
 		if _, err := io.Copy(wc, file); err != nil {
 			log.Fatalf("io.Copy: %v", err)
 		}

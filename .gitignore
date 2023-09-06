@@ -2,3 +2,6 @@
 testdata*
 backupi
 config.yaml
+*.tar
+*.tar.gz
+test_config.yaml
