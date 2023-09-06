@@ -93,14 +93,7 @@ func main() {
 	fmt.Println("Done gzipping", tempOutputFile)
 	tempOutputFile = tempOutputFile + ".gz"
 
-	if c.Dest.LocalDir != nil && c.Dest.LocalDir.Path != "" {
-		finalFile := filepath.Join(c.Dest.LocalDir.Path, tempOutputFile)
-		fmt.Println("Writing to", finalFile)
-		if err := os.Rename(tempOutputFile, finalFile); err != nil {
-			log.Fatalf("Moving %s to %s: %v", tempOutputFile, finalFile, err)
-		}
-		fmt.Println("Done")
-	} else if c.Dest.GCS != nil && c.Dest.GCS.Bucket != "" {
+	if c.Dest.GCS != nil && c.Dest.GCS.Bucket != "" {
 		fmt.Println("Uploading to GCS at", c.Dest.GCS.Bucket)
 		ctx := context.Background()
 
@@ -122,5 +115,15 @@ func main() {
 			log.Fatalf("Writer.Close: %v", err)
 		}
 		fmt.Println("Copied to GCS under name:", wc.Name)
+	}
+
+	// Do this last as it moves the file.
+	if c.Dest.LocalDir != nil && c.Dest.LocalDir.Path != "" {
+		finalFile := filepath.Join(c.Dest.LocalDir.Path, tempOutputFile)
+		fmt.Println("Writing to", finalFile)
+		if err := os.Rename(tempOutputFile, finalFile); err != nil {
+			log.Fatalf("Moving %s to %s: %v", tempOutputFile, finalFile, err)
+		}
+		fmt.Println("Done")
 	}
 }

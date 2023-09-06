@@ -3,9 +3,7 @@ path:
   - /etc/nginx/conf.d/
   - /etc/monit/
 dest:
-  # Uncomment to copy to localDir, cannot be used with gcs because the file gets
-  # moved first (could reverse the two in reality, no big deal to implement if needed)
-  # localDir:
-  #   path: /media/usb1/backups/
+  localDir:
+    path: /media/usb1/backups/
   gcs:
     bucket: home-backups
