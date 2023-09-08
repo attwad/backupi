@@ -6,37 +6,15 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 
-	"cloud.google.com/go/storage"
-	"google.golang.org/api/option"
-
-	"gopkg.in/yaml.v3"
+	"github.com/attwad/backupi/config"
+	"github.com/attwad/backupi/gcs"
+	"github.com/attwad/backupi/local"
 )
-
-type config struct {
-	Path []string    `yaml:"path"`
-	Dest destination `yaml:"dest"`
-}
-
-type destination struct {
-	LocalDir *localDest `yaml:"localDir,omitempty"`
-	GCS      *gcs       `yaml:"gcs,omitempty"`
-}
-
-type localDest struct {
-	// Path is the absolute path to a directory in which to store the backup.tar file.
-	Path string `yaml:"path"`
-}
-
-type gcs struct {
-	// Bucket is the bucket in which to put the backup.tar file.
-	Bucket string `yaml:"bucket"`
-}
 
 var (
 	configPath = flag.String("config_path", "./config.yaml", "Path to the config file")
@@ -48,14 +26,9 @@ func main() {
 
 	fmt.Println("Reading config from", *configPath)
 
-	var c config
-	data, err := os.ReadFile(*configPath)
+	c, err := config.Read(*configPath)
 	if err != nil {
-		log.Fatalf("reading %s: %v", *configPath, err)
-	}
-	fmt.Printf("config:\n%s\n", string(data))
-	if err := yaml.Unmarshal(data, &c); err != nil {
-		log.Fatalf("unmarshaling config yaml: %v", err)
+		log.Fatal(err)
 	}
 
 	dir, err := os.MkdirTemp("", "backupi")
@@ -94,36 +67,15 @@ func main() {
 	tempOutputFile = tempOutputFile + ".gz"
 
 	if c.Dest.GCS != nil && c.Dest.GCS.Bucket != "" {
-		fmt.Println("Uploading to GCS at", c.Dest.GCS.Bucket)
-		ctx := context.Background()
-
-		file, err := os.Open(tempOutputFile)
-		if err != nil {
-			log.Fatalf("opening %s: %v", tempOutputFile, err)
+		if err := gcs.Backup(context.Background(), tempOutputFile, c.Dest.GCS.Bucket, *credsFile); err != nil {
+			log.Fatal(err)
 		}
-
-		srv, err := storage.NewClient(ctx, option.WithCredentialsFile(*credsFile))
-		if err != nil {
-			log.Fatalf("creating GCS client: %v", err)
-		}
-
-		wc := srv.Bucket(c.Dest.GCS.Bucket).Object("backup.tar.gz").NewWriter(ctx)
-		if _, err := io.Copy(wc, file); err != nil {
-			log.Fatalf("io.Copy: %v", err)
-		}
-		if err := wc.Close(); err != nil {
-			log.Fatalf("Writer.Close: %v", err)
-		}
-		fmt.Println("Copied to GCS under name:", wc.Name)
 	}
 
 	// Do this last as it moves the file.
 	if c.Dest.LocalDir != nil && c.Dest.LocalDir.Path != "" {
-		finalFile := filepath.Join(c.Dest.LocalDir.Path, tempOutputFile)
-		fmt.Println("Writing to", finalFile)
-		if err := os.Rename(tempOutputFile, finalFile); err != nil {
-			log.Fatalf("Moving %s to %s: %v", tempOutputFile, finalFile, err)
+		if err := local.Backup(tempOutputFile, c.Dest.LocalDir.Path); err != nil {
+			log.Fatal(err)
 		}
-		fmt.Println("Done")
 	}
 }
