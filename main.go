@@ -1,5 +1,4 @@
 // Package main contains a simple backup program.
-// TODO: split main into structs: config reader, local exporter, gcs exporter, add tests
 package main
 
 import (
